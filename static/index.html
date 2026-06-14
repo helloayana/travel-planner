@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Travel Planner ✈️</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #333; display: flex; }
+
+        /* Боковое меню */
+        .sidebar { width: 240px; min-height: 100vh; background: linear-gradient(180deg, #667eea, #764ba2); padding: 30px 0; display: flex; flex-direction: column; position: fixed; left: -240px; transition: left 0.3s ease; z-index: 100; }
+        .sidebar.open { left: 0; }
+        .main { margin-left: 0; flex: 1; padding: 40px; min-height: 100vh; transition: margin-left 0.3s ease; }
+        .main.shifted { margin-left: 240px; }
+        .toggle-btn { position: fixed; top: 15px; left: 15px; z-index: 200; background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: white; width: 45px; height: 45px; border-radius: 12px; font-size: 1.3rem; cursor: pointer; box-shadow: 0 4px 15px rgba(102,126,234,0.4); }
+        .sidebar-logo { color: white; font-size: 1.3rem; font-weight: bold; padding: 0 25px 30px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+        .sidebar-menu { padding: 20px 0; flex: 1; }
+        .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 25px; color: rgba(255,255,255,0.7); cursor: pointer; transition: all 0.3s; font-size: 0.95rem; }
+        .menu-item:hover { background: rgba(255,255,255,0.1); color: white; }
+        .menu-item.active { background: rgba(255,255,255,0.2); color: white; font-weight: bold; border-right: 3px solid white; }
+        .menu-icon { font-size: 1.2rem; }
+        .sidebar-footer { padding: 20px 25px; border-top: 1px solid rgba(255,255,255,0.2); }
+        .logout-btn { color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+        .logout-btn:hover { color: white; }
+
+        /* Основной контент */
+        .main { margin-left: 240px; flex: 1; padding: 40px; min-height: 100vh; }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Карточки */
+        .card { background: white; border-radius: 16px; padding: 30px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .page-title { font-size: 1.8rem; font-weight: bold; color: #333; margin-bottom: 25px; }
+
+        /* Форма */
+        input { width: 100%; padding: 12px 15px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 15px; font-size: 1rem; transition: border 0.3s; }
+        input:focus { outline: none; border-color: #667eea; }
+        .btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: opacity 0.3s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-outline { background: white; color: #667eea; border: 2px solid #667eea; }
+        .btn-sm { width: auto; padding: 8px 16px; font-size: 0.85rem; border-radius: 8px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        /* Авторизация */
+        .auth-wrapper { max-width: 450px; margin: 0 auto; padding-top: 50px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab { padding: 10px 25px; border: 2px solid #667eea; border-radius: 25px; cursor: pointer; background: white; color: #667eea; font-weight: bold; transition: all 0.3s; }
+        .tab.active { background: #667eea; color: white; }
+
+        /* Маршрут */
+        .day-card { background: #f8f9ff; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #667eea; }
+        .day-title { font-size: 1.1rem; font-weight: bold; color: #667eea; margin-bottom: 15px; }
+        .activity { display: flex; gap: 15px; padding: 12px; background: white; border-radius: 10px; margin-bottom: 10px; align-items: flex-start; }
+        .activity-time { font-weight: bold; color: #667eea; min-width: 50px; font-size: 0.9rem; }
+        .activity-icon { font-size: 1.3rem; }
+        .activity-info { flex: 1; }
+        .activity-title { font-weight: bold; margin-bottom: 3px; }
+        .activity-desc { color: #666; font-size: 0.85rem; margin-bottom: 5px; }
+        .activity-price { color: #48bb78; font-weight: bold; font-size: 0.85rem; }
+        .day-cost { text-align: right; color: #667eea; font-weight: bold; margin-top: 10px; font-size: 0.9rem; }
+        .tips-box { background: #fffbeb; border: 2px solid #f6e05e; border-radius: 12px; padding: 15px; margin-top: 15px; }
+        .tips-box h3 { color: #d69e2e; margin-bottom: 8px; }
+        .total-budget { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; padding: 15px; text-align: center; margin-top: 15px; font-size: 1.1rem; font-weight: bold; }
+
+        /* История и избранное */
+        .plan-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8f9ff; border-radius: 10px; margin-bottom: 10px; }
+        .plan-item-info { cursor: pointer; flex: 1; }
+        .plan-item-info:hover { color: #667eea; }
+        .plan-item-actions { display: flex; gap: 8px; }
+        .btn-fav { background: none; border: none; font-size: 1.3rem; cursor: pointer; }
+
+        /* Профиль */
+        .profile-avatar { width: 80px; height: 80px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; margin-bottom: 15px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+        .stat-card { background: #f8f9ff; border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; }
+        .stat-label { color: #666; font-size: 0.85rem; margin-top: 5px; }
+
+        /* Алерты */
+        .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 15px; }
+        .alert-error { background: #fed7d7; color: #c53030; }
+        .alert-success { background: #c6f6d5; color: #276749; }
+        .loading { text-align: center; padding: 40px; color: #667eea; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- Авторизация -->
+<div id="authPage" style="width:100%; min-height:100vh; background: linear-gradient(135deg, #667eea, #764ba2); display:flex; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:20px; padding:40px; width:420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+        <h1 style="text-align:center; margin-bottom:25px; color:#333;">✈️ AI Travel Planner</h1>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('login')">Войти</button>
+            <button class="tab" onclick="switchTab('register')">Регистрация</button>
+        </div>
+        <div id="loginForm">
+            <input type="text" id="loginUsername" placeholder="Имя пользователя">
+            <input type="password" id="loginPassword" placeholder="Пароль">
+            <button class="btn" onclick="login()">Войти</button>
+        </div>
+        <div id="registerForm" class="hidden">
+            <input type="text" id="regUsername" placeholder="Имя пользователя">
+            <input type="email" id="regEmail" placeholder="Email">
+            <input type="password" id="regPassword" placeholder="Пароль">
+            <button class="btn" onclick="register()">Создать аккаунт</button>
+        </div>
+        <div id="authAlert"></div>
+    </div>
+</div>
+
+<!-- Основное приложение -->
+<div id="appPage" class="hidden" style="display:none; width:100%;">
+    <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+
+    <!-- Боковое меню -->
+    <div class="sidebar">
+        <div class="sidebar-logo">✈️ Travel Planner</div>
+        <div class="sidebar-menu">
+            <div class="menu-item active" onclick="showPage('planner')">
+                <span class="menu-icon">🗺</span> Новый маршрут
+            </div>
+            <div class="menu-item" onclick="showPage('history')">
+                <span class="menu-icon">📋</span> Мои маршруты
+            </div>
+            <div class="menu-item" onclick="showPage('favorites')">
+                <span class="menu-icon">⭐</span> Избранное
+            </div>
+            <div class="menu-item" onclick="showPage('profile')">
+                <span class="menu-icon">👤</span> Профиль
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <div class="logout-btn" onclick="logout()">
+                <span>🚪</span> Выйти
+            </div>
+        </div>
+    </div>
+
+    <!-- Контент -->
+    <div class="main">
+
+        <!-- Новый маршрут -->
+        <div id="plannerPage" class="page active">
+            <div class="page-title">🗺 Новый маршрут</div>
+            <div class="card">
+                <input type="text" id="city" placeholder="Город (например: Стамбул, Париж, Токио)">
+                <div class="form-row">
+                    <input type="number" id="days" placeholder="Дней (1-30)" min="1" max="30">
+                    <input type="number" id="budget" placeholder="Бюджет в $" min="1">
+                </div>
+                <button class="btn" onclick="createPlan()">✨ Создать маршрут</button>
+                <div id="planAlert"></div>
+            </div>
+
+            <div id="loadingSection" class="hidden card loading">
+                🤖 AI составляет маршрут... Подождите
+            </div>
+
+            <div id="planResult" class="hidden card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2 id="planTitle" style="color:#667eea;"></h2>
+                    <button class="btn btn-sm" id="favBtn" onclick="toggleFavorite()">⭐ В избранное</button>
+                </div>
+                <div id="planDays"></div>
+            </div>
+        </div>
+
+        <!-- Мои маршруты -->
+        <div id="historyPage" class="page">
+            <div class="page-title">📋 Мои маршруты</div>
+            <div class="card">
+                <div id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Избранное -->
+        <div id="favoritesPage" class="page">
+            <div class="page-title">⭐ Избранное</div>
+            <div class="card">
+                <div id="favoritesList"></div>
+            </div>
+        </div>
+
+        <!-- Профиль -->
+        <div id="profilePage" class="page">
+            <div class="page-title">👤 Профиль</div>
+            <div class="card" style="text-align:center;">
+                <div class="profile-avatar" style="margin:0 auto;">👤</div>
+                <h2 id="profileUsername" style="font-size:1.5rem; margin-bottom:5px;"></h2>
+                <p id="profileEmail" style="color:#666;"></p>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalPlans">0</div>
+                        <div class="stat-label">Маршрутов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalFavorites">0</div>
+                        <div class="stat-label">Избранных</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalCities">0</div>
+                        <div class="stat-label">Городов</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let token = localStorage.getItem('token');
+    let currentPlanId = null;
+    let favoriteIds = new Set();
+    let currentUser = localStorage.getItem('username') || '';
+
+    if (token) showApp();
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
+        document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
+    }
+
+    async function register() {
+        const username = document.getElementById('regUsername').value;
+        const email = document.getElementById('regEmail').value;
+        const password = document.getElementById('regPassword').value;
+        const res = await fetch('/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, email, password})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showAlert('authAlert', '✅ Аккаунт создан! Войдите.', 'success');
+        } else {
+            showAlert('authAlert', '❌ ' + data.detail, 'error');
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, password})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            token = data.access_token;
+            localStorage.setItem('token', token);
+            localStorage.setItem('username', username);
+            currentUser = username;
+            showApp();
+        } else {
+            showAlert('authAlert', '❌ ' + data.detail, 'error');
+        }
+    }
+
+    function logout() {
+        token = null;
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        document.getElementById('authPage').style.display = 'flex';
+        document.getElementById('appPage').style.display = 'none';
+    }
+
+    function showApp() {
+        document.getElementById('authPage').style.display = 'none';
+        document.getElementById('appPage').style.display = 'flex';
+        loadFavoriteIds();
+        loadProfile();
+    }
+
+    function showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        document.getElementById(page + 'Page').classList.add('active');
+        event.currentTarget.classList.add('active');
+
+        if (page === 'history') loadHistory();
+        if (page === 'favorites') loadFavorites();
+        if (page === 'profile') loadProfile();
+    }
+
+    async function createPlan() {
+        const city = document.getElementById('city').value;
+        const days = parseInt(document.getElementById('days').value);
+        const budget = parseInt(document.getElementById('budget').value);
+        if (!city || !days || !budget) {
+            showAlert('planAlert', '❌ Заполни все поля!', 'error');
+            return;
+        }
+        document.getElementById('loadingSection').classList.remove('hidden');
+        document.getElementById('planResult').classList.add('hidden');
+        const res = await fetch('/plan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'authorization': 'Bearer ' + token},
+            body: JSON.stringify({city, days, budget})
+        });
+        const data = await res.json();
+        document.getElementById('loadingSection').classList.add('hidden');
+        if (res.ok) {
+            currentPlanId = data.id;
+            updateFavBtn();
+            renderPlan(data.plan, city);
+        } else {
+            showAlert('planAlert', '❌ ' + (data.detail || 'Ошибка'), 'error');
+        }
+    }
+
+    function renderPlan(plan, city) {
+        document.getElementById('planResult').classList.remove('hidden');
+        document.getElementById('planTitle').textContent = '✈️ ' + (plan.city || city);
+        const icons = {attraction: '🏛', food: '🍽', transport: '🚇', hotel: '🏨'};
+        let html = '';
+
+        if (plan.raw) {
+            html = `<p style="padding:20px; line-height:1.8;">${plan.raw.replace(/\n/g, '<br>')}</p>`;
+        } else if (plan.days) {
+            plan.days.forEach(day => {
+                html += `<div class="day-card"><div class="day-title">День ${day.day}: ${day.title}</div>`;
+                day.activities.forEach(a => {
+                    const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(a.title + ' ' + (plan.city || city))}`;
+                    html += `<div class="activity">
+                        <div class="activity-time">${a.time}</div>
+                        <div class="activity-icon">${icons[a.type] || '📍'}</div>
+                        <div class="activity-info">
+                            <div class="activity-title">${a.title} <a href="${mapsUrl}" target="_blank" style="font-size:0.8rem; color:#667eea;">🗺 карта</a></div>
+                            <div class="activity-desc">${a.description}</div>
+                            <div class="activity-price">${a.price}</div>
+                        </div>
+                    </div>`;
+                });
+                html += `<div class="day-cost">💰 ${day.total_cost}</div></div>`;
+            });
+            if (plan.total_budget) html += `<div class="total-budget">💵 Общий бюджет: ${plan.total_budget}</div>`;
+            if (plan.tips) html += `<div class="tips-box"><h3>💡 Советы</h3><p>${plan.tips}</p></div>`;
+        }
+        document.getElementById('planDays').innerHTML = html;
+    }
+
+    async function loadHistory() {
+        const res = await fetch('/history', { headers: {'authorization': 'Bearer ' + token} });
+        const data = await res.json();
+        const html = data.length ? data.map(p => `
+            <div class="plan-item">
+                <div class="plan-item-info" onclick="loadPlan(${p.id})">
+                    ✈️ <b>${p.city}</b> — ${p.days} дней, $${p.budget}
+                </div>
+                <div class="plan-item-actions">
+                    <button class="btn-fav" onclick="toggleFavoriteById(${p.id})">${favoriteIds.has(p.id) ? '⭐' : '☆'}</button>
+                </div>
+            </div>`).join('') : '<p style="color:#999;">Маршрутов пока нет</p>';
+        document.getElementById('historyList').innerHTML = html;
+    }
+
+    async function loadFavorites() {
+        const res = await fetch('/favorites', { headers: {'authorization': 'Bearer ' + token} });
+        const data = await res.json();
+        const html = data.length ? data.map(p => `
+            <div class="plan-item">
+                <div class="plan-item-info" onclick="loadPlan(${p.id})">
+                    ⭐ <b>${p.city}</b> — ${p.days} дней, $${p.budget}
+                </div>
+                <div class="plan-item-actions">
+                    <button class="btn btn-sm btn-outline" onclick="removeFav(${p.id})">Удалить</button>
+                </div>
+            </div>`).join('') : '<p style="color:#999;">Избранного пока нет</p>';
+        document.getElementById('favoritesList').innerHTML = html;
+    }
+
+    async function loadFavoriteIds() {
+        const res = await fetch('/favorites', { headers: {'authorization': 'Bearer ' + token} });
+        const data = await res.json();
+        favoriteIds = new Set(data.map(f => f.id));
+    }
+
+    async function toggleFavorite() {
+        if (!currentPlanId) return;
+        await toggleFavoriteById(currentPlanId);
+        updateFavBtn();
+    }
+
+    async function toggleFavoriteById(id) {
+        if (favoriteIds.has(id)) {
+            await fetch(`/favorite/${id}`, { method: 'DELETE', headers: {'authorization': 'Bearer ' + token} });
+            favoriteIds.delete(id);
+        } else {
+            await fetch(`/favorite/${id}`, { method: 'POST', headers: {'authorization': 'Bearer ' + token} });
+            favoriteIds.add(id);
+        }
+        updateFavBtn();
+        if (document.getElementById('historyPage').classList.contains('active')) loadHistory();
+        if (document.getElementById('favoritesPage').classList.contains('active')) loadFavorites();
+    }
+
+    async function removeFav(id) {
+        await fetch(`/favorite/${id}`, { method: 'DELETE', headers: {'authorization': 'Bearer ' + token} });
+        favoriteIds.delete(id);
+        loadFavorites();
+    }
+
+    function updateFavBtn() {
+        const btn = document.getElementById('favBtn');
+        if (btn) btn.textContent = favoriteIds.has(currentPlanId) ? '⭐ В избранном' : '☆ В избранное';
+    }
+
+    async function loadPlan(id) {
+        const res = await fetch(`/plan/${id}`, { headers: {'authorization': 'Bearer ' + token} });
+        const data = await res.json();
+        if (res.ok) {
+            currentPlanId = id;
+            showPage('planner');
+            document.querySelectorAll('.menu-item')[0].classList.add('active');
+            updateFavBtn();
+            renderPlan(data.plan, data.city);
+            window.scrollTo(0, 0);
+        }
+    }
+
+    async function loadProfile() {
+        const [histRes, favRes] = await Promise.all([
+            fetch('/history', { headers: {'authorization': 'Bearer ' + token} }),
+            fetch('/favorites', { headers: {'authorization': 'Bearer ' + token} })
+        ]);
+        const history = await histRes.json();
+        const favs = await favRes.json();
+        const cities = new Set(history.map(p => p.city));
+
+        document.getElementById('profileUsername').textContent = currentUser;
+        document.getElementById('totalPlans').textContent = history.length;
+        document.getElementById('totalFavorites').textContent = favs.length;
+        document.getElementById('totalCities').textContent = cities.size;
+    }
+
+    function showAlert(id, msg, type) {
+        const el = document.getElementById(id);
+        el.innerHTML = `<div class="alert alert-${type}" style="margin-top:15px;">${msg}</div>`;
+        setTimeout(() => el.innerHTML = '', 4000);
+    }
+    function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('open');
+    document.querySelector('.main').classList.toggle('shifted');
+}
+</script>
+
+</body>
+</html>
