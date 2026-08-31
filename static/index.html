@@ -216,13 +216,40 @@
     let favoriteIds = new Set();
     let currentUser = localStorage.getItem('username') || '';
 
-    if (token) showApp();
+    if (token) showApp(); else wakeServer();
 
     function switchTab(tab, event) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         if (event && event.target) event.target.classList.add('active');
         document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
         document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
+    }
+
+    // Бесплатный Render "засыпает" и первый запрос будит его ~30-60с.
+    // Поэтому делаем несколько попыток, показывая "сервер просыпается".
+    async function apiPost(url, body, alertId) {
+        const attempts = 6;
+        for (let i = 0; i < attempts; i++) {
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                return res; // сервер ответил (даже если ошибкой) — отдаём наверх
+            } catch (e) {
+                if (i < attempts - 1) {
+                    showAlert(alertId, '⏳ Сервер просыпается, подождите... (' + (i + 1) + ')', 'success');
+                    await new Promise(r => setTimeout(r, 4000));
+                }
+            }
+        }
+        return null; // так и не достучались
+    }
+
+    // Пробуждаем сервер заранее, пока пользователь заполняет форму
+    function wakeServer() {
+        try { fetch('/', {method: 'GET', cache: 'no-store'}); } catch (e) {}
     }
 
     async function register() {
@@ -233,24 +260,19 @@
             showAlert('authAlert', '❌ Заполни все поля!', 'error');
             return;
         }
-        try {
-            const res = await fetch('/register', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username, email, password})
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showAlert('authAlert', '✅ Аккаунт создан! Войдите.', 'success');
-                // автоматически переключаем на вкладку "Войти" и подставляем логин
-                switchTab('login');
-                document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
-                document.getElementById('loginUsername').value = username;
-            } else {
-                showAlert('authAlert', '❌ ' + (data.detail || 'Ошибка регистрации'), 'error');
-            }
-        } catch (e) {
-            showAlert('authAlert', '❌ Нет связи с сервером. Открой сайт через адрес http://127.0.0.1:8888 (а не двойным кликом по файлу).', 'error');
+        const res = await apiPost('/register', {username, email, password}, 'authAlert');
+        if (!res) {
+            showAlert('authAlert', '❌ Сервер не отвечает. Подождите минуту и нажмите ещё раз.', 'error');
+            return;
+        }
+        const data = await res.json();
+        if (res.ok) {
+            showAlert('authAlert', '✅ Аккаунт создан! Войдите.', 'success');
+            switchTab('login');
+            document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+            document.getElementById('loginUsername').value = username;
+        } else {
+            showAlert('authAlert', '❌ ' + (data.detail || 'Ошибка регистрации'), 'error');
         }
     }
 
@@ -261,24 +283,20 @@
             showAlert('authAlert', '❌ Введи логин и пароль!', 'error');
             return;
         }
-        try {
-            const res = await fetch('/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username, password})
-            });
-            const data = await res.json();
-            if (res.ok) {
-                token = data.access_token;
-                localStorage.setItem('token', token);
-                localStorage.setItem('username', username);
-                currentUser = username;
-                showApp();
-            } else {
-                showAlert('authAlert', '❌ ' + (data.detail || 'Ошибка входа'), 'error');
-            }
-        } catch (e) {
-            showAlert('authAlert', '❌ Нет связи с сервером. Открой сайт через адрес http://127.0.0.1:8888 (а не двойным кликом по файлу).', 'error');
+        const res = await apiPost('/login', {username, password}, 'authAlert');
+        if (!res) {
+            showAlert('authAlert', '❌ Сервер не отвечает. Подождите минуту и нажмите ещё раз.', 'error');
+            return;
+        }
+        const data = await res.json();
+        if (res.ok) {
+            token = data.access_token;
+            localStorage.setItem('token', token);
+            localStorage.setItem('username', username);
+            currentUser = username;
+            showApp();
+        } else {
+            showAlert('authAlert', '❌ ' + (data.detail || 'Ошибка входа'), 'error');
         }
     }
 
