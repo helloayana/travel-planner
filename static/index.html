@@ -97,17 +97,17 @@
         </div>
         <div id="loginForm">
             <input type="text" id="loginUsername" placeholder="Имя пользователя">
-            <input type="password" id="loginPassword" placeholder="Пароль">
+            <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
             <button class="btn" onclick="login()">Войти</button>
         </div>
         <div id="registerForm" class="hidden">
             <input type="text" id="regUsername" placeholder="Имя пользователя">
             <input type="email" id="regEmail" placeholder="Email">
-            <input type="password" id="regPassword" placeholder="Пароль">
+            <input type="password" id="regPassword" placeholder="Пароль" autocomplete="new-password">
             <button class="btn" onclick="register()">Создать аккаунт</button>
         </div>
         <div id="authAlert"></div>
-        <div style="text-align:center; margin-top:15px; color:#aaa; font-size:0.75rem;">build v5 · diagnostics</div>
+        <div style="text-align:center; margin-top:15px; color:#aaa; font-size:0.75rem;">build v6 · auto-login</div>
     </div>
 </div>
 
@@ -277,7 +277,20 @@
         }
         const data = await res.json();
         if (res.ok) {
-            showAlert('authAlert', '✅ Аккаунт создан! Войдите.', 'success');
+            // Сразу входим теми же данными из памяти — без ручного ввода и автозаполнения браузера
+            showAlert('authAlert', '✅ Аккаунт создан! Входим...', 'success');
+            const lr = await apiPost('/login', {username, password}, 'authAlert');
+            if (lr && lr.ok) {
+                const ld = await lr.json();
+                token = ld.access_token;
+                localStorage.setItem('token', token);
+                localStorage.setItem('username', username);
+                currentUser = username;
+                showApp();
+                return;
+            }
+            // запасной вариант, если авто-вход не удался
+            showAlert('authAlert', '✅ Аккаунт создан! Теперь войди вручную.', 'success');
             switchTab('login');
             document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
             document.getElementById('loginUsername').value = username;
