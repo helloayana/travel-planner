@@ -107,7 +107,7 @@
             <button class="btn" onclick="register()">Создать аккаунт</button>
         </div>
         <div id="authAlert"></div>
-        <div style="text-align:center; margin-top:15px; color:#aaa; font-size:0.75rem;">build v4 · cold-start-fix</div>
+        <div style="text-align:center; margin-top:15px; color:#aaa; font-size:0.75rem;">build v5 · diagnostics</div>
     </div>
 </div>
 
@@ -212,6 +212,14 @@
 </div>
 
 <script>
+    // ДИАГНОСТИКА: показываем любую JS-ошибку прямо на странице
+    window.addEventListener('error', function (e) {
+        try { showAlert('authAlert', '🐞 JS ошибка: ' + e.message + ' @' + (e.lineno||'?'), 'error'); } catch (_) {}
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        try { showAlert('authAlert', '🐞 Promise: ' + ((e.reason && e.reason.message) || e.reason), 'error'); } catch (_) {}
+    });
+
     let token = localStorage.getItem('token');
     let currentPlanId = null;
     let favoriteIds = new Set();
@@ -254,6 +262,7 @@
     }
 
     async function register() {
+        showAlert('authAlert', '⏳ Отправляю заявку на регистрацию...', 'success');
         const username = document.getElementById('regUsername').value.trim();
         const email = document.getElementById('regEmail').value.trim();
         const password = document.getElementById('regPassword').value;
