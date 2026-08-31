@@ -237,4 +237,7 @@ def delete_plan(plan_id: int, authorization: str = Header(...), db: Session = De
 @app.get("/", response_class=HTMLResponse)
 def home():
     with open("static/index.html", "r", encoding="utf-8") as f:
-        return f.read()
+        html = f.read()
+    # запрещаем браузеру кэшировать страницу, чтобы всегда грузилась свежая версия
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+    return HTMLResponse(content=html, headers=headers)
