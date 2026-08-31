@@ -92,8 +92,8 @@
     <div style="background:white; border-radius:20px; padding:40px; width:420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
         <h1 style="text-align:center; margin-bottom:25px; color:#333;">✈️ AI Travel Planner</h1>
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('login')">Войти</button>
-            <button class="tab" onclick="switchTab('register')">Регистрация</button>
+            <button class="tab active" onclick="switchTab('login', event)">Войти</button>
+            <button class="tab" onclick="switchTab('register', event)">Регистрация</button>
         </div>
         <div id="loginForm">
             <input type="text" id="loginUsername" placeholder="Имя пользователя">
@@ -218,47 +218,67 @@
 
     if (token) showApp();
 
-    function switchTab(tab) {
+    function switchTab(tab, event) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
+        if (event && event.target) event.target.classList.add('active');
         document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
         document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
     }
 
     async function register() {
-        const username = document.getElementById('regUsername').value;
-        const email = document.getElementById('regEmail').value;
+        const username = document.getElementById('regUsername').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
         const password = document.getElementById('regPassword').value;
-        const res = await fetch('/register', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username, email, password})
-        });
-        const data = await res.json();
-        if (res.ok) {
-            showAlert('authAlert', '✅ Аккаунт создан! Войдите.', 'success');
-        } else {
-            showAlert('authAlert', '❌ ' + data.detail, 'error');
+        if (!username || !email || !password) {
+            showAlert('authAlert', '❌ Заполни все поля!', 'error');
+            return;
+        }
+        try {
+            const res = await fetch('/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, email, password})
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('authAlert', '✅ Аккаунт создан! Войдите.', 'success');
+                // автоматически переключаем на вкладку "Войти" и подставляем логин
+                switchTab('login');
+                document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+                document.getElementById('loginUsername').value = username;
+            } else {
+                showAlert('authAlert', '❌ ' + (data.detail || 'Ошибка регистрации'), 'error');
+            }
+        } catch (e) {
+            showAlert('authAlert', '❌ Нет связи с сервером. Открой сайт через адрес http://127.0.0.1:8888 (а не двойным кликом по файлу).', 'error');
         }
     }
 
     async function login() {
-        const username = document.getElementById('loginUsername').value;
+        const username = document.getElementById('loginUsername').value.trim();
         const password = document.getElementById('loginPassword').value;
-        const res = await fetch('/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username, password})
-        });
-        const data = await res.json();
-        if (res.ok) {
-            token = data.access_token;
-            localStorage.setItem('token', token);
-            localStorage.setItem('username', username);
-            currentUser = username;
-            showApp();
-        } else {
-            showAlert('authAlert', '❌ ' + data.detail, 'error');
+        if (!username || !password) {
+            showAlert('authAlert', '❌ Введи логин и пароль!', 'error');
+            return;
+        }
+        try {
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, password})
+            });
+            const data = await res.json();
+            if (res.ok) {
+                token = data.access_token;
+                localStorage.setItem('token', token);
+                localStorage.setItem('username', username);
+                currentUser = username;
+                showApp();
+            } else {
+                showAlert('authAlert', '❌ ' + (data.detail || 'Ошибка входа'), 'error');
+            }
+        } catch (e) {
+            showAlert('authAlert', '❌ Нет связи с сервером. Открой сайт через адрес http://127.0.0.1:8888 (а не двойным кликом по файлу).', 'error');
         }
     }
 
